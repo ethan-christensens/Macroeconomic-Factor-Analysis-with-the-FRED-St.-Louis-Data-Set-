@@ -105,14 +105,14 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 
 <section id="summary" class="level2">
 <h2 class="anchored" data-anchor-id="summary"><strong>Summary</strong></h2>
-<p>The motivation for this report is to analyze and communicate the dependencies interwoven through U.S. inflation, real economic output growth, and monetary policy actions using a Vector Autoregression framework. I illustrate the aforementioned interdependencies with monthly data from Federal Reserve Economic Data (FRED), an online economic database created and maintained by the Research Division of the Federal Reserve Bank of St.&nbsp;Louis. The data used ranges from 1985 to the present, with variables stationarized through log differences and first differences. With this data set as a focal point, I employ Granger causality tests and Orthogonalized Impulse Response Functions to follow transmission processes of a Federal Funds Rate shock on industrial production and consumer price inflation. The results show standard macroeconomic dynamics. This includes output contractions and delayed price puzzles following unforeseen quantitative tightening.</p>
+<p>The motivation for this report is to analyze and communicate the dependencies interwoven through U.S. inflation, real economic output growth, and monetary policy actions using a Vector Autoregression framework. I illustrate the aforementioned interdependencies with monthly data from Federal Reserve Economic Data (FRED), an online economic database created and maintained by the Research Division of the Federal Reserve Bank of St.&nbsp;Louis. The data used ranges from 1985 to the present, with variables stationarized through log differences and first differences. With this data set as a focal point, I employ Granger causality tests and Orthogonalized Impulse Response Functions to follow transmission processes of a Federal Funds Rate shock on industrial production and consumer price inflation. The results notably depart from typical macroeconomic transmission dynamics. After a positive rate shock, both output growth and inflation momentarily increase before returning back to zero. This is comprehensible in the broader context of the Federal Reserve tightening in anticipation of economic conditions that the model doesn’t display, which is a known limit of small scale VARs. Granger causality tests point to a conclusion that rate changes and inflation have substantial relevant predictive information about the system, while ouput growth does not.</p>
 </section>
 <section id="data-preparation-and-stationarity" class="level2">
 <h2 class="anchored" data-anchor-id="data-preparation-and-stationarity"><strong>Data Preparation and Stationarity</strong></h2>
 <p>To prepare the data of interest for time-series modeling and analysis, monthly observations for Consumer Price Index for All Urban Consumers (CPIAUCSL), Industrial Production Index (INDPRO), and the Effective Federal Funds Rate (FEDFUNDS) were retrieved from the Federal Reserve Bank of St.&nbsp;Louis (FRED) starting from January 1985.</p>
 <p>To ensure stationarity of the macroeconomic time series in levels, transformations were applied to particular categories of data as follows:</p>
 <ul>
-<li><p>Inflation, computed as the annualized log difference percentage change in the CPI (Inflation = diff(log(CPI)) * 100).</p></li>
+<li><p>Inflation, computed as the monthly log difference percentage change in the CPI (Inflation = diff(log(CPI)) * 100).</p></li>
 <li><p>Output growth, computed as the log difference percentage change in industrial Production (OutputGrowth = diff(log(IndustrialProduction)) * 100).</p></li>
 <li><p>Monetary policy changes, computed as the first difference of the Federal Funds Rate (FedFundsDiff = diff(FedFunds) ) in order to capture changes in policy stance.</p></li>
 </ul>
@@ -216,17 +216,64 @@ trend           -4.496532e-05 7.476594e-05 -0.6014145 5.478455e-01</code></pre>
 </div>
 </div>
 </section>
+<section id="granger-causality-tests" class="level2">
+<h2 class="anchored" data-anchor-id="granger-causality-tests">Granger Causality Tests</h2>
+<p>To examine and interpret the dynamic effects of a policy shock, we will explore the question of if changes in the Federal Funds Rate encode any predictive signals about inflation and output, and vice versa, since if past rate changes help forecast the other variables, then there is support for treating monetary policy as an efficacious and active mechanism in the broader environment. If they also help forecast rate changes, this would indicate that the Federal Reserve is actively responding to economic conditions, a feedback loop that has direct implications for how the impulse responses below should be understood.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>vars_list <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"Inflation"</span>, <span class="st">"OutputGrowth"</span>, <span class="st">"FedFundsDiff"</span>)</span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>granger_results <span class="ot">&lt;-</span> <span class="fu">lapply</span>(vars_list, <span class="cf">function</span>(v) <span class="fu">causality</span>(var_model, <span class="at">cause =</span> v)<span class="sc">$</span>Granger)</span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>granger_table <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">Cause =</span> vars_list,</span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">F_statistics =</span> <span class="fu">sapply</span>(granger_results, <span class="cf">function</span>(x) <span class="fu">round</span>(<span class="fu">as.numeric</span>(x<span class="sc">$</span>statistic), <span class="dv">3</span>)),</span>
+<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">p_value =</span> <span class="fu">sapply</span>(granger_results, <span class="cf">function</span>(x) <span class="fu">format.pval</span>(x<span class="sc">$</span>p.value, <span class="at">digits =</span> <span class="dv">3</span>, <span class="at">eps =</span> .<span class="dv">001</span>))</span>
+<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-11"><a href="#cb8-11" aria-hidden="true" tabindex="-1"></a>knitr<span class="sc">::</span><span class="fu">kable</span>(granger_table, <span class="at">caption =</span> <span class="st">"Granger Causality Tests (null: variable does not Granger-cause the others)"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<table class="table table-sm table-striped small">
+<caption>Granger Causality Tests (null: variable does not Granger-cause the others)</caption>
+<thead>
+<tr class="header">
+<th style="text-align: left;">Cause</th>
+<th style="text-align: right;">F_statistics</th>
+<th style="text-align: left;">p_value</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">Inflation</td>
+<td style="text-align: right;">2.662</td>
+<td style="text-align: left;">0.0143</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">OutputGrowth</td>
+<td style="text-align: right;">0.522</td>
+<td style="text-align: left;">0.792</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">FedFundsDiff</td>
+<td style="text-align: right;">5.608</td>
+<td style="text-align: left;">&lt;0.001</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<p>The tests reject the null hypothesis for both the Federal Funds Rate (p&lt;.001) and inflation (p=.014), but not for output growth (p=.79). As such we see that rate changes that have occurred are significantly predictive signs regarding the character of inflation and output, thus supporting consideration of monetary policy as a precipitative agent in the system. Simultaneously, lagged inflation also predicts, in concert, both output growth and rate changes, which is consistent with the Federal Reserve changing its policies in response to price pressures. The observed contours of the responses in the following section assume the unknown aspect of the changes in rates are external policy shock. However, if the Federal Reserve is responding to anything else, such as forecasts or commodity prices, for example, some of what the model portrays as a shock is actually a proactive action to inflation already in motion. As such any upward changes in rates would seem to have higher inflation following it even though tightening itself might have no inflationary effect.</p>
+</section>
 <section id="impulse-response-functions" class="level2">
 <h2 class="anchored" data-anchor-id="impulse-response-functions">Impulse Response Functions</h2>
 <p>To measure any sort of causal impact of a monetary policy, we examine the Orthogonalized Impulse Response Functions (IRFs), specifically shocking the Federal Funds Rate differential (FedFundsDiff) to trace out the structural response of output growth and inflation over a 12-month horizon. Bootstrap confidence intervals, using 100 replications, are generated to assess the potential statistical significance.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="co">#IRFs to Monetary Policy Shocks</span></span>
-<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>irf_shock <span class="ot">&lt;-</span> <span class="fu">irf</span>(var_model, <span class="at">impulse =</span> <span class="st">"FedFundsDiff"</span>, <span class="at">response =</span> <span class="fu">c</span>(<span class="st">"Inflation"</span>, <span class="st">"OutputGrowth"</span>), <span class="at">n.ahead =</span> <span class="dv">12</span>, <span class="at">ortho =</span> <span class="cn">TRUE</span>, <span class="at">boot =</span> <span class="cn">TRUE</span>)</span>
-<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(irf_shock)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb9"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="co">#IRFs to Monetary Policy Shocks</span></span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>irf_shock <span class="ot">&lt;-</span> <span class="fu">irf</span>(var_model, <span class="at">impulse =</span> <span class="st">"FedFundsDiff"</span>, <span class="at">response =</span> <span class="fu">c</span>(<span class="st">"Inflation"</span>, <span class="st">"OutputGrowth"</span>), <span class="at">n.ahead =</span> <span class="dv">12</span>, <span class="at">ortho =</span> <span class="cn">TRUE</span>, <span class="at">boot =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(irf_shock)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
 <div>
 <figure class="figure">
-<p><img src="Macroeconomic-Factor-Analysis_files/figure-html/unnamed-chunk-5-1.png" class="img-fluid figure-img" width="864"></p>
+<p><img src="Macroeconomic-Factor-Analysis_files/figure-html/unnamed-chunk-6-1.png" class="img-fluid figure-img" width="864"></p>
 </figure>
 </div>
 </div>
@@ -234,7 +281,8 @@ trend           -4.496532e-05 7.476594e-05 -0.6014145 5.478455e-01</code></pre>
 </section>
 <section id="discussion" class="level2">
 <h2 class="anchored" data-anchor-id="discussion"><strong>Discussion</strong></h2>
-<p>The estimated VAR model and associated impulse response functions reveal standard macroeconomic transmission channels. With respect to output response, industrial output growth exibits a contractionary response in the aftermath of an unexpected positive shock to the Federal Funds Rate, thus aligning with standard neo-Keynesian transmission modes where a more restricted monetary policy dampens economic activity. The price level response around inflation highlights the standard empirical nuances in macroeconometrics, showcasing how monetary policy can react to inflationary pressures and timing lags inherent in price adjustments. Unlike single-equation models, the VAR framework is quite successful in handling the endogeneity, treating all variables as jointly endogenous, and thus providing a robust empirical baseline for policy analysis.</p>
+<p>The estimated VAR model and associated impulse response functions reveal atypical macroeconomic transmission channels that seem to deviate in two primary ways. As opposed to the typical predictions of a New Keynesian economic lens, industrial output growth rises meaningfully in the month after an unforeseen positive change in the Federal Funds Rate before returning to zero by the third month. This is probably a result of the Reserve raising rates when the economy is already strong rather than tightening itself increasing activity, so estimated shock partially comprises the condition policy was responding to. A 12 month horizon and the use of growth rates instead of levels also limits the model’s ability to detect the delayed output effects typically seen in the range of 12 to 24 months.</p>
+<p>The Granger causality results, which show that inflation jointly predicts output growth and rate changes, can be taken in tandem with the fact that inflation rises notably in the first two months after the shock (the “price puzzle” observed by Sims (1992)) to suggest that identified shocks are not completely external. When the Federal Reserve reacts to anything outside of the model, rate increases seem to be followed by higher inflation even if tightening has no inflationary effect. Although it is preferable to treat all variables as endogenous, an advantage offered by the VAR framework over single-equation models, a three variable model still fails to fully isolate distinct policy choices from the environmental cues that motivated them, and adding an index that tracks such environmental factors, such as commodity prices, is a natural next step, alongside pushing out the time horizon of the impulse response analysis.</p>
 </section>
 <section id="references" class="level2">
 <h2 class="anchored" data-anchor-id="references"><strong>References</strong></h2>
@@ -242,6 +290,7 @@ trend           -4.496532e-05 7.476594e-05 -0.6014145 5.478455e-01</code></pre>
 <li><p>Board of Governors of the Federal Reserve System (US), Consumer Price Index for All Urban Consumers: All Items [CPIAUCSL], retrieved from FRED, Federal Reserve Bank of St.&nbsp;Louis.</p></li>
 <li><p>Board of Governors of the Federal Reserve System (US), Industrial Production Index [INDPRO], retrieved from FRED, Federal Reserve Bank of St.&nbsp;Louis.</p></li>
 <li><p>Board of Governors of the Federal Reserve System (US), Effective Federal Funds Rate [FEDFUNDS], retrieved from FRED, Federal Reserve Bank of St.&nbsp;Louis.</p></li>
+<li><p>Sims, C. A. (1992). Interpreting the macroeconomic time series facts: The effects of monetary policy.&nbsp;<em>European Economic Review</em>, 36(5), 975–1000.</p></li>
 </ul>
 </section>
 
@@ -640,3 +689,17 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
 
 
 </body></html>
+<script>window.backupDefine = window.define; window.define = undefined;</script>
+<script type="text/javascript" src="quarto-preview.js"></script>
+<script>window.define = window.backupDefine; window.backupDefine = undefined;</script>
+<script type="text/javascript">
+  const options = {
+    origin: "",
+    search: "",
+    inputFile: "/Users/ethanchristensen/Downloads/Macroeconomic Factor Analysis.qmd",
+    isPresentation: false
+  }
+  document.addEventListener("DOMContentLoaded", function () {
+    window.QuartoPreview.init(options);
+  });
+</script>
