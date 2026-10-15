@@ -1,0 +1,134 @@
+---
+title: "Macroeconomic Factor Analysis"
+author: "Ethan Christensen"
+format: html
+editor: visual
+---
+
+## **Summary**
+
+The motivation for this report is to analyze and communicate the dependencies interwoven through U.S. inflation, real economic output growth, and monetary policy actions using a Vector Autoregression framework. I illustrate the aforementioned interdependencies with monthly data from Federal Reserve Economic Data (FRED), an online economic database created and maintained by the Research Division of the Federal Reserve Bank of St. Louis. The data used ranges from 1985 to the present, with variables stationarized through log differences and first differences. With this data set as a focal point, I employ Granger causality tests and Orthogonalized Impulse Response Functions to follow transmission processes of a Federal Funds Rate shock on industrial production and consumer price inflation. The results show standard macroeconomic dynamics. This includes output contractions and delayed price puzzles following unforeseen quantitative tightening.
+
+## **Data Preparation and Stationarity**
+
+To prepare the data of interest for time-series modeling and analysis, monthly obsearvations for Consumer Price Index for All Urban Consumers (CPIAUCSL), Industrial Production Index (INDPRO), and the Effective Federal Funds Rate (FEDFUNDS) were retrieved from the Federal Reserve Bank of St. Louis (FRED) starting from January 1985.
+
+To ensure stationarity of the macroeconomic time series in levels, transformations were applied to particular categories of data as follows:
+
+- Inflation, computed as the annualized log difference percentage change in the CPI (Inflation = diff(log(CPI)) \* 100).
+
+- Output growth, computed as the log difference percentage change in industrial Production (OutputGrowth = diff(log(IndustrialProduction)) \* 100).
+
+- Monetary policy changes, computed as the first difference of the Federal Funds Rate (FedFundsDiff = diff(FedFunds) ) in order to capture changes in policy stance.
+
+```{r}
+#| message: false
+#| warning: false
+library(quantmod)
+library(vars)
+library(tseries)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+
+# 1. Fetch data 
+cpi_df <- read.csv("https://fred.stlouisfed.org/graph/fredgraph.csv?id=CPIAUCSL")
+ind_df <- read.csv("https://fred.stlouisfed.org/graph/fredgraph.csv?id=INDPRO")
+ff_df  <- read.csv("https://fred.stlouisfed.org/graph/fredgraph.csv?id=FEDFUNDS")
+
+colnames(cpi_df) <- c("DATE", "CPI")
+colnames(ind_df) <- c("DATE", "IndustrialProduction")
+colnames(ff_df) <-c("DATE", "FedFunds")
+
+#2. Merging and cleaning 
+macro_merged <- cpi_df %>%
+  inner_join(ind_df, by = "DATE") %>%
+  inner_join(ff_df, by = "DATE") %>%
+  mutate(
+    DATE = as.Date(DATE),
+    CPI = suppressWarnings(as.numeric(CPI)),
+    IndustrialProduction = suppressWarnings(as.numeric(IndustrialProduction)),
+    FedFunds = suppressWarnings(as.numeric(FedFunds))
+  ) %>%
+  filter(DATE >= as.Date("1985-01-01")) %>%
+  na.omit()
+
+
+# 3. Building macro_df explicitly
+macro_df <- macro_merged %>%
+  mutate(
+    date = DATE,
+    Inflation = c(NA, diff(log(CPI)) * 100),
+    OutputGrowth = c(NA, diff(log(IndustrialProduction)) * 100),
+    FedFundsDiff = c(NA, diff(FedFunds))
+  ) %>%
+  drop_na() %>%
+  select(date, Inflation, OutputGrowth, FedFundsDiff)
+
+# 4. Converting to time series object
+ts_data <- ts(macro_df[, c("Inflation", "OutputGrowth", "FedFundsDiff")], 
+              frequency = 12, start = c(1985, 2))
+```
+
+## **Exploratory Data Analysis: Stationary Panel**
+
+Visual inspection of the transformed series confirms mean-reverting behavior consistent and appropriate for VAR estimation. Volatility clustering can be seen during major economic downturns, such as in the instance of the 2008 financial crisis and the 2020 COVID-19 shock.
+
+```{r}
+#| warning: false
+#| fig-width: 10
+#| fig-height: 9
+p1 <- ggplot(macro_df %>% pivot_longer(cols = -date), aes(x = date, y = value, color = name)) +
+  geom_line(linewidth = 0.6) +
+  facet_wrap(~name, scales = "free_y", ncol = 1) +
+  theme_minimal() +
+  labs(title = "Stationary Macroeconomic Panel (FRED Data)", 
+       subtitle = "Transformed via log-differences and first differences",
+       x = "Date", y = "Transformed Value") +
+  theme(legend.position = "none")
+
+print(p1)
+
+```
+
+## **VAR Model Specification and Estimation**
+
+```{r}
+lag_selection <- VARselect(ts_data, lag.max = 12, type = "both")
+optimal_lag <- lag_selection$selection["AIC(n)"]
+cat("Selected Optimal Lag Order (AIC):", optimal_lag, "\n")
+
+var_model <- VAR(ts_data, p = optimal_lag, type = "both")
+```
+
+The model summary provides coefficient estimates across equations, thus showing how past changes in interest rates, output, and inflation might predict current movements.
+
+```{r}
+summary(var_model)$varresult$Inflation$coefficients
+```
+
+## Impulse Response Functions 
+
+To measure any sort of causal impact of a monetary policy, we examine the Orthogonalized Impulse Response Functions (IRFs), specifically shocking the Federal Funds Rate differential (FedFundsDiff) to trace out the structural response of output growth and inflation over a 12-month horizon. Bootstrap confidence intervals, using 100 replications, are generated to assess the potential statistical significance.
+
+```{r}
+#| warning: false
+#| fig-width: 9
+#| fig-height: 6
+
+#IRFs to Monetary Policy Shocks
+irf_shock <- irf(var_model, impulse = "FedFundsDiff", response = c("Inflation", "OutputGrowth"), n.ahead = 12, ortho = TRUE, boot = TRUE)
+plot(irf_shock)
+```
+
+## **Discussion**
+
+The estimated VAR model and associated impulse response functions reveal standard macroeconomic transmission channels. With respect to output response, industrial output growth exibits a contractionary response in the aftermath of an unexpected positive shock to the Federal Funds Rate, thus aligning with standard neo-Keynesian transmission modes where a more restricted monetary policy dampens economic activity. The price level response around inflation highlights the standard empirical nuances in macroeconometrics, showcasing how monetary policy can react to inflationary pressures and timing lags inherent in price adjustments. Unlike single-equation models, the VAR framework is quite successful in handling the endogeneity, treating all variables as jointly endogenous, and thus providing a robust empirical baseline for policy analysis.
+
+## **References** 
+
+- Board of Governors of the Federal Reserve System (US), Consumer Price Index for All Urban Consumers: All Items \[CPIAUCSL\], retrieved from FRED, Federal Reserve Bank of St. Louis.
+
+- Board of Governors of the Federal Reserve System (US), Industrial Production Index \[INDPRO\], retrieved from FRED, Federal Reserve Bank of St. Louis.
+
+- Board of Governors of the Federal Reserve System (US), Effective Federal Funds Rate \[FEDFUNDS\], retrieved from FRED, Federal Reserve Bank of St. Louis.
