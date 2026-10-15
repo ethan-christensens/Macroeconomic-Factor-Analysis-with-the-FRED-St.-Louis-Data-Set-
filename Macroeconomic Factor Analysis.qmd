@@ -11,7 +11,7 @@ The motivation for this report is to analyze and communicate the dependencies in
 
 ## **Data Preparation and Stationarity**
 
-To prepare the data of interest for time-series modeling and analysis, monthly obsearvations for Consumer Price Index for All Urban Consumers (CPIAUCSL), Industrial Production Index (INDPRO), and the Effective Federal Funds Rate (FEDFUNDS) were retrieved from the Federal Reserve Bank of St. Louis (FRED) starting from January 1985.
+To prepare the data of interest for time-series modeling and analysis, monthly observations for Consumer Price Index for All Urban Consumers (CPIAUCSL), Industrial Production Index (INDPRO), and the Effective Federal Funds Rate (FEDFUNDS) were retrieved from the Federal Reserve Bank of St. Louis (FRED) starting from January 1985.
 
 To ensure stationarity of the macroeconomic time series in levels, transformations were applied to particular categories of data as follows:
 
@@ -107,7 +107,7 @@ The model summary provides coefficient estimates across equations, thus showing 
 summary(var_model)$varresult$Inflation$coefficients
 ```
 
-## Impulse Response Functions 
+## Impulse Response Functions
 
 To measure any sort of causal impact of a monetary policy, we examine the Orthogonalized Impulse Response Functions (IRFs), specifically shocking the Federal Funds Rate differential (FedFundsDiff) to trace out the structural response of output growth and inflation over a 12-month horizon. Bootstrap confidence intervals, using 100 replications, are generated to assess the potential statistical significance.
 
@@ -125,7 +125,7 @@ plot(irf_shock)
 
 The estimated VAR model and associated impulse response functions reveal standard macroeconomic transmission channels. With respect to output response, industrial output growth exibits a contractionary response in the aftermath of an unexpected positive shock to the Federal Funds Rate, thus aligning with standard neo-Keynesian transmission modes where a more restricted monetary policy dampens economic activity. The price level response around inflation highlights the standard empirical nuances in macroeconometrics, showcasing how monetary policy can react to inflationary pressures and timing lags inherent in price adjustments. Unlike single-equation models, the VAR framework is quite successful in handling the endogeneity, treating all variables as jointly endogenous, and thus providing a robust empirical baseline for policy analysis.
 
-## **References** 
+## **References**
 
 - Board of Governors of the Federal Reserve System (US), Consumer Price Index for All Urban Consumers: All Items \[CPIAUCSL\], retrieved from FRED, Federal Reserve Bank of St. Louis.
 
